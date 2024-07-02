@@ -44,7 +44,7 @@ def run_folder(
     model,
     config,
     *,
-    input_folder: str = None,
+    input_paths: str = None,
     store_dir: str = None,
     model_type: ModelType = None,
     extract_instrumental: bool = False,
@@ -53,7 +53,7 @@ def run_folder(
 ):
     start_time = time.time()
     model.eval()
-    all_mixtures_path = glob.glob(input_folder + "/*.*")
+    all_mixtures_path = input_paths
     print("Total files found: {}".format(len(all_mixtures_path)))
 
     instruments = config.training.instruments
@@ -124,10 +124,10 @@ def main():
         required=True,
     )
     parser.add_argument(
-        "--input_folder",
+        "inputs",
         type=str,
-        help="folder with mixtures to process",
-        required=True,
+        help="paths to mixtures to process",
+        nargs="+",
     )
     parser.add_argument(
         "--store_dir",
@@ -177,7 +177,7 @@ def main():
     run_folder(
         model,
         config,
-        input_folder=args.input_folder,
+        input_paths=args.inputs,
         store_dir=args.store_dir,
         model_type=args.model_type,
         extract_instrumental=args.extract_instrumental,
