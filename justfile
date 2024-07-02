@@ -1,23 +1,25 @@
 # https://github.com/ZFTurbo/Music-Source-Separation-Training
 
 # Vocal model: BS Roformer (viperx edition)
-vocals:
+# this will also create an instrumental
+vocals path:
     # Processing files in ./input/
-    rye run python inference.py \
+    rye run python inference_single.py \
+        "{{path}}" \
+        --extract_instrumental \
         --model_type bs_roformer \
         --config_path configs/viperx/model_bs_roformer_ep_317_sdr_12.9755.yaml \
         --start_check_point results/model_bs_roformer_ep_317_sdr_12.9755.ckpt \
-        --input_folder input/ \
         --store_dir separation_results/
 
 # Single stem model: BS Roformer (viperx edition)
 # this removes drums and bass only, keeping the rest
 # so you should remove vocals first!
-other:
+other path:
     # Processing files in ./input/
-    rye run python inference.py \
+    rye run python inference_single.py \
+        "{{path}}" \
         --model_type bs_roformer \
         --config_path configs/viperx/model_bs_roformer_ep_937_sdr_10.5309.yaml \
         --start_check_point results/model_bs_roformer_ep_937_sdr_10.5309.ckpt \
-        --input_folder input/ \
         --store_dir separation_results/
