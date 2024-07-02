@@ -7,6 +7,30 @@ authors = [
 ]
 dependencies = [
     "torch==2.3.1+cu121",
+    "numpy>=0.0.0",
+    "pandas>=0.0.0",
+    "scipy>=0.0.0",
+    "soundfile>=0.0.0",
+    "ml-collections>=0.0.0",
+    "tqdm>=0.0.0",
+    "segmentation-models-pytorch>=0.0.0",
+    "timm>=0.0.0",
+    "audiomentations>=0.0.0",
+    "pedalboard>=0.0.0",
+    "omegaconf>=0.0.0",
+    "beartype>=0.0.0",
+    "rotary-embedding-torch>=0.0.0",
+    "einops>=0.0.0",
+    "librosa>=0.0.0",
+    "demucs>=0.0.0",
+    "transformers>=0.0.0",
+    "torchmetrics>=0.0.0",
+    "spafe>=0.0.0",
+    "protobuf>=0.0.0",
+    "torch-audiomentations>=0.0.0",
+    "asteroid>=0.0.0",
+    "auraloss>=0.0.0",
+    "torchseg>=0.0.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
