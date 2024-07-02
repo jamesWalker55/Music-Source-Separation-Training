@@ -143,10 +143,7 @@ def main():
         action="store_true",
         help="invert vocals to get instrumental if provided",
     )
-    if args is None:
-        args = parser.parse_args()
-    else:
-        args = parser.parse_args(args)
+    args = parser.parse_args()
 
     torch.backends.cudnn.benchmark = True
 
