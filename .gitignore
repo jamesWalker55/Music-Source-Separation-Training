@@ -77,3 +77,6 @@ wandb/
 
 # venv
 .venv
+
+# checkpoints output
+results/
