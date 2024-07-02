@@ -49,6 +49,7 @@ def run_folder(
     model_type: ModelType = None,
     target_instrument: str | None = None,
     extract_instrumental: bool = False,
+    audio_format="wav",
     device=None,
     verbose=False,
 ):
@@ -95,17 +96,24 @@ def run_folder(
             res = demix_track(config, model, mixture, device)
         for instr in instruments:
             sf.write(
-                "{}/{}_{}.wav".format(store_dir, os.path.basename(path)[:-4], instr),
+                "{}/{}_{}.{}".format(
+                    store_dir, os.path.basename(path)[:-4], instr, audio_format
+                ),
                 res[instr].T,
                 sr,
-                subtype="FLOAT",
+                subtype="FLOAT" if audio_format == "wav" else None,
             )
 
         if "vocals" in instruments and extract_instrumental:
-            instrum_file_name = "{}/{}_{}.wav".format(
-                store_dir, os.path.basename(path)[:-4], "instrumental"
+            instrum_file_name = "{}/{}_{}.{}".format(
+                store_dir, os.path.basename(path)[:-4], "instrumental", audio_format
             )
-            sf.write(instrum_file_name, mix - res["vocals"].T, sr, subtype="FLOAT")
+            sf.write(
+                instrum_file_name,
+                mix - res["vocals"].T,
+                sr,
+                subtype="FLOAT" if audio_format == "wav" else None,
+            )
 
     time.sleep(1)
     print("Elapsed time: {:.2f} sec".format(time.time() - start_time))
@@ -150,6 +158,11 @@ def main():
         help="invert vocals to get instrumental if provided",
     )
     parser.add_argument(
+        "--flac",
+        action="store_true",
+        help="save to FLAC format",
+    )
+    parser.add_argument(
         "--target_instrument",
         help="extract only the target instrument",
         default=None,
@@ -191,6 +204,7 @@ def main():
         model_type=args.model_type,
         target_instrument=args.target_instrument,
         extract_instrumental=args.extract_instrumental,
+        audio_format="flac" if args.flac else "wav",
         device=device,
         verbose=False,
     )
