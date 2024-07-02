@@ -3,7 +3,6 @@
 # Vocal model: BS Roformer (viperx edition)
 # this will also create an instrumental
 vocals path:
-    # Processing files in ./input/
     rye run python inference_single.py \
         "{{path}}" \
         --extract_instrumental \
@@ -16,10 +15,19 @@ vocals path:
 # this removes drums and bass only, keeping the rest
 # so you should remove vocals first!
 other path:
-    # Processing files in ./input/
     rye run python inference_single.py \
         "{{path}}" \
         --model_type bs_roformer \
         --config_path configs/viperx/model_bs_roformer_ep_937_sdr_10.5309.yaml \
         --start_check_point results/model_bs_roformer_ep_937_sdr_10.5309.ckpt \
+        --store_dir separation_results/
+
+# Single stem model: HTDemucs4 FT Drums
+drums path:
+    rye run python inference_single.py \
+        "{{path}}" \
+        --model_type htdemucs \
+        --config_path configs/config_musdb18_htdemucs.yaml \
+        --start_check_point results/f7e0c4bc-ba3fe64a.th \
+        --target_instrument drums \
         --store_dir separation_results/
