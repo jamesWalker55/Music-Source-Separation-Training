@@ -76,26 +76,46 @@ def run_folder(model, args, config, device, verbose=False):
     print("Elapsed time: {:.2f} sec".format(time.time() - start_time))
 
 
-def proc_folder(args):
+MODEL_TYPE_CHOICES = (
+    "mdx23c",
+    "htdemucs",
+    "segm_models",
+    "mel_band_roformer",
+    "bs_roformer",
+    "swin_upernet",
+    "bandit",
+)
+
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model_type",
         type=str,
-        default="mdx23c",
-        help="One of mdx23c, htdemucs, segm_models, mel_band_roformer, bs_roformer, swin_upernet, bandit",
+        choices=MODEL_TYPE_CHOICES,
+        help=f"One of {', '.join(MODEL_TYPE_CHOICES)}",
+        required=True,
     )
-    parser.add_argument("--config_path", type=str, help="path to config file")
+    parser.add_argument(
+        "--config_path", type=str, help="path to config file", required=True
+    )
     parser.add_argument(
         "--start_check_point",
         type=str,
-        default="",
         help="Initial checkpoint to valid weights",
+        required=True,
     )
     parser.add_argument(
-        "--input_folder", type=str, help="folder with mixtures to process"
+        "--input_folder",
+        type=str,
+        help="folder with mixtures to process",
+        required=True,
     )
     parser.add_argument(
-        "--store_dir", default="", type=str, help="path to store results as wav file"
+        "--store_dir",
+        type=str,
+        help="path to store results as wav file",
+        required=True,
     )
     parser.add_argument(
         "--device_ids", nargs="+", type=int, default=0, help="list of gpu ids"
@@ -140,4 +160,4 @@ def proc_folder(args):
 
 
 if __name__ == "__main__":
-    proc_folder(None)
+    main()
