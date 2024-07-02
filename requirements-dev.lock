@@ -22,6 +22,8 @@ asteroid==0.5.2
     # via music-source-separation-training
 asteroid-filterbanks==0.4.0
     # via asteroid
+asttokens==2.4.1
+    # via stack-data
 attrs==23.2.0
     # via aiohttp
 audiomentations==0.35.0
@@ -44,10 +46,16 @@ charset-normalizer==2.1.1
 cloudpickle==3.0.0
     # via submitit
 colorama==0.4.6
+    # via ipython
     # via tqdm
+comm==0.2.2
+    # via ipykernel
 contextlib2==21.6.0
     # via ml-collections
+debugpy==1.8.2
+    # via ipykernel
 decorator==5.1.1
+    # via ipython
     # via librosa
 demucs==4.0.1
     # via music-source-separation-training
@@ -62,6 +70,8 @@ einops==0.8.0
     # via pb-bss-eval
     # via rotary-embedding-torch
     # via torchseg
+executing==2.0.1
+    # via stack-data
 filelock==3.13.1
     # via huggingface-hub
     # via torch
@@ -88,6 +98,11 @@ idna==3.4
     # via yarl
 intel-openmp==2021.4.0
     # via mkl
+ipykernel==6.29.5
+ipython==8.26.0
+    # via ipykernel
+jedi==0.19.1
+    # via ipython
 jinja2==3.1.3
     # via torch
 joblib==1.4.2
@@ -97,6 +112,11 @@ julius==0.2.7
     # via asteroid
     # via demucs
     # via torch-audiomentations
+jupyter-client==8.6.2
+    # via ipykernel
+jupyter-core==5.7.2
+    # via ipykernel
+    # via jupyter-client
 lameenc==1.7.0
     # via demucs
 lazy-loader==0.4
@@ -114,6 +134,9 @@ markdown==3.6
 markupsafe==2.1.5
     # via jinja2
     # via werkzeug
+matplotlib-inline==0.1.7
+    # via ipykernel
+    # via ipython
 mir-eval==0.7
     # via pb-bss-eval
 mkl==2021.4.0
@@ -129,6 +152,8 @@ multidict==6.0.5
     # via yarl
 munch==4.0.0
     # via pretrainedmodels
+nest-asyncio==1.6.0
+    # via ipykernel
 networkx==3.2.1
     # via torch
 numba==0.60.0
@@ -163,6 +188,7 @@ openunmix==1.3.0
     # via demucs
 packaging==22.0
     # via huggingface-hub
+    # via ipykernel
     # via lazy-loader
     # via lightning-utilities
     # via pooch
@@ -173,6 +199,8 @@ packaging==22.0
 pandas==2.2.2
     # via asteroid
     # via music-source-separation-training
+parso==0.8.4
+    # via jedi
 pb-bss-eval==0.0.2
     # via asteroid
 pedalboard==0.9.8
@@ -183,6 +211,7 @@ pillow==10.2.0
     # via segmentation-models-pytorch
     # via torchvision
 platformdirs==4.2.2
+    # via jupyter-core
     # via pooch
 pooch==1.8.2
     # via librosa
@@ -191,17 +220,26 @@ pretrainedmodels==0.7.4
     # via torchseg
 primepy==1.3
     # via torch-pitch-shift
+prompt-toolkit==3.0.47
+    # via ipython
 protobuf==5.27.2
     # via music-source-separation-training
     # via tensorboard
+psutil==6.0.0
+    # via ipykernel
+pure-eval==0.2.2
+    # via stack-data
 pycparser==2.22
     # via cffi
 pydeprecate==0.3.1
     # via pytorch-lightning
+pygments==2.18.0
+    # via ipython
 pystoi==0.4.1
     # via pb-bss-eval
     # via torch-stoi
 python-dateutil==2.9.0.post0
+    # via jupyter-client
     # via pandas
 pytorch-lightning==1.4.9
     # via asteroid
@@ -209,6 +247,8 @@ pytorch-ranger==0.1.1
     # via torch-optimizer
 pytz==2024.1
     # via pandas
+pywin32==306
+    # via jupyter-core
 pyyaml==6.0.1
     # via asteroid
     # via demucs
@@ -218,6 +258,9 @@ pyyaml==6.0.1
     # via pytorch-lightning
     # via timm
     # via transformers
+pyzmq==26.0.3
+    # via ipykernel
+    # via jupyter-client
 regex==2024.5.15
     # via transformers
 requests==2.28.1
@@ -248,6 +291,7 @@ setuptools==70.2.0
     # via lightning-utilities
     # via tensorboard
 six==1.16.0
+    # via asttokens
     # via mir-eval
     # via ml-collections
     # via python-dateutil
@@ -262,6 +306,8 @@ soxr==0.3.7
     # via librosa
 spafe==0.3.3
     # via music-source-separation-training
+stack-data==0.6.3
+    # via ipython
 submitit==1.5.1
     # via dora-search
 sympy==1.12
@@ -328,6 +374,9 @@ torchvision==0.18.1+cu121
     # via segmentation-models-pytorch
     # via timm
     # via torchseg
+tornado==6.4.1
+    # via ipykernel
+    # via jupyter-client
 tqdm==4.64.1
     # via demucs
     # via huggingface-hub
@@ -337,6 +386,13 @@ tqdm==4.64.1
     # via pytorch-lightning
     # via segmentation-models-pytorch
     # via transformers
+traitlets==5.14.3
+    # via comm
+    # via ipykernel
+    # via ipython
+    # via jupyter-client
+    # via jupyter-core
+    # via matplotlib-inline
 transformers==4.42.3
     # via music-source-separation-training
 treetable==0.2.5
@@ -354,6 +410,8 @@ tzdata==2024.1
     # via pandas
 urllib3==1.26.13
     # via requests
+wcwidth==0.2.13
+    # via prompt-toolkit
 werkzeug==3.0.3
     # via tensorboard
 yarl==1.9.4
