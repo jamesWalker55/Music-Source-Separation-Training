@@ -47,6 +47,7 @@ def run_folder(
     input_paths: str = None,
     store_dir: str = None,
     model_type: ModelType = None,
+    target_instrument: str | None = None,
     extract_instrumental: bool = False,
     device=None,
     verbose=False,
@@ -59,6 +60,11 @@ def run_folder(
     instruments = config.training.instruments
     if config.training.target_instrument is not None:
         instruments = [config.training.target_instrument]
+    if target_instrument is not None:
+        assert (
+            target_instrument in instruments
+        ), f"invalid target instrument, must be one of: {', '.join(instruments)}"
+        instruments = [target_instrument]
 
     if not os.path.isdir(store_dir):
         os.mkdir(store_dir)
@@ -143,6 +149,12 @@ def main():
         action="store_true",
         help="invert vocals to get instrumental if provided",
     )
+    parser.add_argument(
+        "--target_instrument",
+        help="extract only the target instrument",
+        default=None,
+        choices=(None, "drums", "bass", "other", "vocals"),
+    )
     args = parser.parse_args()
 
     torch.backends.cudnn.benchmark = True
@@ -177,6 +189,7 @@ def main():
         input_paths=args.inputs,
         store_dir=args.store_dir,
         model_type=args.model_type,
+        target_instrument=args.target_instrument,
         extract_instrumental=args.extract_instrumental,
         device=device,
         verbose=False,
