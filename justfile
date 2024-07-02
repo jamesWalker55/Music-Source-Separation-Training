@@ -31,3 +31,13 @@ drums path:
         --start_check_point results/f7e0c4bc-ba3fe64a.th \
         --target_instrument drums \
         --store_dir separation_results/
+
+# Single stem model: HTDemucs4 FT Bass
+bass path:
+    rye run python inference_single.py \
+        "{{path}}" \
+        --model_type htdemucs \
+        --config_path configs/config_musdb18_htdemucs.yaml \
+        --start_check_point results/d12395a8-e57c48e6.th \
+        --target_instrument bass \
+        --store_dir separation_results/
