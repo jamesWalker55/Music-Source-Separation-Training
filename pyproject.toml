@@ -5,7 +5,9 @@ description = "Add your description here"
 authors = [
     { name = "James Walker", email = "james.chunho@gmail.com" }
 ]
-dependencies = []
+dependencies = [
+    "torch==2.3.1+cu121",
+]
 readme = "README.md"
 requires-python = ">= 3.8"
 
@@ -22,3 +24,7 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/music_source_separation_training"]
+
+[[tool.rye.sources]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu121"
