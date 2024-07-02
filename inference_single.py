@@ -47,6 +47,7 @@ def run_folder(
     input_folder: str = None,
     store_dir: str = None,
     model_type: ModelType = None,
+    extract_instrumental: bool = False,
     device=None,
     verbose=False,
 ):
@@ -94,7 +95,7 @@ def run_folder(
                 subtype="FLOAT",
             )
 
-        if "vocals" in instruments and args.extract_instrumental:
+        if "vocals" in instruments and extract_instrumental:
             instrum_file_name = "{}/{}_{}.wav".format(
                 store_dir, os.path.basename(path)[:-4], "instrumental"
             )
@@ -179,6 +180,7 @@ def main():
         input_folder=args.input_folder,
         store_dir=args.store_dir,
         model_type=args.model_type,
+        extract_instrumental=args.extract_instrumental,
         device=device,
         verbose=False,
     )
