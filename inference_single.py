@@ -3,6 +3,7 @@ __author__ = "Roman Solovyev (ZFTurbo): https://github.com/ZFTurbo/"
 
 import argparse
 import time
+from typing import Literal
 import librosa
 from tqdm import tqdm
 import sys
@@ -19,18 +20,47 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def run_folder(model, args, config, device, verbose=False):
+MODEL_TYPE_CHOICES = (
+    "mdx23c",
+    "htdemucs",
+    "segm_models",
+    "mel_band_roformer",
+    "bs_roformer",
+    "swin_upernet",
+    "bandit",
+)
+ModelType = Literal[
+    "mdx23c",
+    "htdemucs",
+    "segm_models",
+    "mel_band_roformer",
+    "bs_roformer",
+    "swin_upernet",
+    "bandit",
+]
+
+
+def run_folder(
+    model,
+    config,
+    *,
+    input_folder: str = None,
+    store_dir: str = None,
+    model_type: ModelType = None,
+    device=None,
+    verbose=False,
+):
     start_time = time.time()
     model.eval()
-    all_mixtures_path = glob.glob(args.input_folder + "/*.*")
+    all_mixtures_path = glob.glob(input_folder + "/*.*")
     print("Total files found: {}".format(len(all_mixtures_path)))
 
     instruments = config.training.instruments
     if config.training.target_instrument is not None:
         instruments = [config.training.target_instrument]
 
-    if not os.path.isdir(args.store_dir):
-        os.mkdir(args.store_dir)
+    if not os.path.isdir(store_dir):
+        os.mkdir(store_dir)
 
     if not verbose:
         all_mixtures_path = tqdm(all_mixtures_path)
@@ -52,15 +82,13 @@ def run_folder(model, args, config, device, verbose=False):
             mix = np.stack([mix, mix], axis=-1)
 
         mixture = torch.tensor(mix.T, dtype=torch.float32)
-        if args.model_type == "htdemucs":
+        if model_type == "htdemucs":
             res = demix_track_demucs(config, model, mixture, device)
         else:
             res = demix_track(config, model, mixture, device)
         for instr in instruments:
             sf.write(
-                "{}/{}_{}.wav".format(
-                    args.store_dir, os.path.basename(path)[:-4], instr
-                ),
+                "{}/{}_{}.wav".format(store_dir, os.path.basename(path)[:-4], instr),
                 res[instr].T,
                 sr,
                 subtype="FLOAT",
@@ -68,23 +96,12 @@ def run_folder(model, args, config, device, verbose=False):
 
         if "vocals" in instruments and args.extract_instrumental:
             instrum_file_name = "{}/{}_{}.wav".format(
-                args.store_dir, os.path.basename(path)[:-4], "instrumental"
+                store_dir, os.path.basename(path)[:-4], "instrumental"
             )
             sf.write(instrum_file_name, mix - res["vocals"].T, sr, subtype="FLOAT")
 
     time.sleep(1)
     print("Elapsed time: {:.2f} sec".format(time.time() - start_time))
-
-
-MODEL_TYPE_CHOICES = (
-    "mdx23c",
-    "htdemucs",
-    "segm_models",
-    "mel_band_roformer",
-    "bs_roformer",
-    "swin_upernet",
-    "bandit",
-)
 
 
 def main():
@@ -156,7 +173,15 @@ def main():
         print("CUDA is not avilable. Run inference on CPU. It will be very slow...")
         model = model.to(device)
 
-    run_folder(model, args, config, device, verbose=False)
+    run_folder(
+        model,
+        config,
+        input_folder=args.input_folder,
+        store_dir=args.store_dir,
+        model_type=args.model_type,
+        device=device,
+        verbose=False,
+    )
 
 
 if __name__ == "__main__":
