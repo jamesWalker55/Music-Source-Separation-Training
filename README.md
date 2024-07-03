@@ -69,7 +69,7 @@ checkpoint=C:/Programs/Music-Source-Separation-Training/results/d12395a8-e57c48e
 ```
 > msst -h
 Reading config from: C:\Users\James\AppData\Roaming\jamesWalker55\MSST\config.ini
-usage: msst [-h] [--out-dir OUT_DIR] [-s] input [input ...]
+usage: msst [-h] [--out-dir OUT_DIR] [-s] [-i] input [input ...]
 
 positional arguments:
   input              input files to process
@@ -78,4 +78,5 @@ options:
   -h, --help         show this help message and exit
   --out-dir OUT_DIR  output directory
   -s, --skip-stems   skip extracting drums, bass, and other stems
+  -i, --no-vocals    if the input tracks don't have vocals, use this option to skip vocal extraction
 ```
