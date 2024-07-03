@@ -263,10 +263,9 @@ def main():
                 vocals = vocal_model.demix(mix)["vocals"]
                 save_audio_to_out_dir("vocals", vocals)
                 inst = mix - vocals
+                save_audio_to_out_dir("inst", inst)
             else:
                 inst = mix
-
-            save_audio_to_out_dir("inst", inst)
 
             if skip_stems:
                 continue
