@@ -11,3 +11,5 @@ wheels/
 
 # checkpoints output
 results/
+
+.vscode
