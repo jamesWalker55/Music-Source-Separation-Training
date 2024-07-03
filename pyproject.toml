@@ -1,0 +1,59 @@
+[project]
+name = "music-source-separation-training"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "James Walker", email = "james.chunho@gmail.com" }
+]
+dependencies = [
+    "torch==2.3.1+cu121",
+    "numpy>=1.26.3",
+    "pandas>=2.2.2",
+    "scipy>=1.14.0",
+    "soundfile>=0.12.1",
+    "ml-collections>=0.1.1",
+    "tqdm>=4.64.1",
+    "segmentation-models-pytorch>=0.3.3",
+    "timm>=0.9.2",
+    "audiomentations>=0.35.0",
+    "pedalboard>=0.9.8",
+    "omegaconf>=2.3.0",
+    "beartype>=0.18.5",
+    "rotary-embedding-torch>=0.6.3",
+    "einops>=0.8.0",
+    "librosa>=0.10.2.post1",
+    "demucs>=4.0.1",
+    "transformers>=4.42.3",
+    "torchmetrics>=1.0.3",
+    "spafe>=0.3.3",
+    "protobuf>=5.27.2",
+    "torch-audiomentations>=0.11.1",
+    "asteroid>=0.5.2",
+    "auraloss>=0.4.0",
+    "torchseg>=0.0.1a1",
+]
+readme = "README.md"
+requires-python = ">= 3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "ipykernel>=6.29.5",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[[tool.rye.sources]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu121"
+
+[project.scripts]
+msst = "inference_james:main"

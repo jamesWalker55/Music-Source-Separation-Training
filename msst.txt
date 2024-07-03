@@ -1,0 +1,1 @@
+this file is just to let you know that 'msst' stands for 'music-source-separation-training', i.e. this folder
