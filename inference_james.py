@@ -1,8 +1,11 @@
 import argparse
+import configparser
+import shutil
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from string import Template
 
 import librosa
 import numpy as np
@@ -11,6 +14,8 @@ import torch
 from tqdm import tqdm
 
 from utils import demix_track, demix_track_demucs, get_model_from_config
+
+BASE_DIR = Path(__file__).absolute().parent
 
 
 def get_device():
@@ -22,6 +27,79 @@ def get_device():
 
 
 device = get_device()
+
+
+@dataclass
+class Config:
+    out_dir: Path
+
+    vocal_model_type: str
+    vocal_model_config: Path
+    vocal_model_checkpoint: Path
+
+    other_model_type: str
+    other_model_config: Path
+    other_model_checkpoint: Path
+
+    drums_model_type: str
+    drums_model_config: Path
+    drums_model_checkpoint: Path
+
+    bass_model_type: str
+    bass_model_config: Path
+    bass_model_checkpoint: Path
+
+    @staticmethod
+    def config_path():
+        import platformdirs
+
+        data_dir = platformdirs.user_data_dir(
+            "MSST",
+            "jamesWalker55",
+            roaming=True,
+            ensure_exists=True,
+        )
+
+        return Path(data_dir) / "config.ini"
+
+    @staticmethod
+    def default_config_path():
+        path = BASE_DIR / "config.default.ini"
+        assert path.exists()
+        return path
+
+    @staticmethod
+    def resolve_path(path: str) -> Path:
+        return Path(Template(path).safe_substitute({"msst": BASE_DIR}))
+
+    @classmethod
+    def load_config(cls):
+        config_path = cls.config_path()
+        default_config_path = cls.default_config_path()
+        if not config_path.exists():
+            print(f"Creating config file at: {config_path}")
+            shutil.copyfile(default_config_path, config_path)
+
+        print(f"Reading config from: {config_path}")
+        c = configparser.ConfigParser()
+        c.read(default_config_path)
+        c.read(config_path)
+
+        return cls(
+            cls.resolve_path(c["paths"]["out_dir"]),
+            c["vocal_model"]["type"],
+            cls.resolve_path(c["vocal_model"]["config"]),
+            cls.resolve_path(c["vocal_model"]["checkpoint"]),
+            c["other_model"]["type"],
+            cls.resolve_path(c["other_model"]["config"]),
+            cls.resolve_path(c["other_model"]["checkpoint"]),
+            c["drums_model"]["type"],
+            cls.resolve_path(c["drums_model"]["config"]),
+            cls.resolve_path(c["drums_model"]["checkpoint"]),
+            c["bass_model"]["type"],
+            cls.resolve_path(c["bass_model"]["config"]),
+            cls.resolve_path(c["bass_model"]["checkpoint"]),
+        )
 
 
 @dataclass
@@ -64,31 +142,6 @@ class Model:
         return res
 
 
-# Vocal model: BS Roformer (viperx edition)
-VOCAL_MODEL = Model(
-    "bs_roformer",
-    "configs/viperx/model_bs_roformer_ep_317_sdr_12.9755.yaml",
-    "results/model_bs_roformer_ep_317_sdr_12.9755.ckpt",
-)
-
-# Single stem model: BS Roformer (viperx edition)
-OTHER_MODEL = Model(
-    "bs_roformer",
-    "configs/viperx/model_bs_roformer_ep_937_sdr_10.5309.yaml",
-    "results/model_bs_roformer_ep_937_sdr_10.5309.ckpt",
-)
-
-# Single stem model: HTDemucs4 FT Drums
-DRUMS_MODEL = Model(
-    "htdemucs", "configs/config_musdb18_htdemucs.yaml", "results/f7e0c4bc-ba3fe64a.th"
-)
-
-# Single stem model: HTDemucs4 FT Bass
-BASS_MODEL = Model(
-    "htdemucs", "configs/config_musdb18_htdemucs.yaml", "results/d12395a8-e57c48e6.th"
-)
-
-
 @contextmanager
 def measure_time(text: str):
     start_time = time.time()
@@ -117,13 +170,13 @@ def save_audio(path: str, mix: np.ndarray, sr):
     sf.write(path, mix, sr, subtype=subtype)
 
 
-def parse_args():
+def parse_args(config: Config | None = None):
     parser = argparse.ArgumentParser()
     parser.add_argument("input", nargs="+", type=Path, help="input files to process")
     parser.add_argument(
         "--out-dir",
         type=Path,
-        default=Path("D:/Audio Samples/_Acapella/MSST"),
+        default=config.out_dir,
         help="output directory",
     )
     parser.add_argument(
@@ -142,18 +195,45 @@ def parse_args():
 
 
 def main():
-    input_paths, out_dir, skip_stems = parse_args()
+    config = Config.load_config()
+
+    input_paths, out_dir, skip_stems = parse_args(config)
 
     print("Total files found: {}".format(len(input_paths)))
 
     input_paths = tqdm(input_paths)
 
+    # Vocal model: BS Roformer (viperx edition)
+    vocal_model = Model(
+        config.vocal_model_type,
+        config.vocal_model_config,
+        config.vocal_model_checkpoint,
+    )
+    # Single stem model: BS Roformer (viperx edition)
+    other_model = Model(
+        config.other_model_type,
+        config.other_model_config,
+        config.other_model_checkpoint,
+    )
+    # Single stem model: HTDemucs4 FT Drums
+    drums_model = Model(
+        config.drums_model_type,
+        config.drums_model_config,
+        config.drums_model_checkpoint,
+    )
+    # Single stem model: HTDemucs4 FT Bass
+    bass_model = Model(
+        config.bass_model_type,
+        config.bass_model_config,
+        config.bass_model_checkpoint,
+    )
+
     with measure_time("Load models"):
-        VOCAL_MODEL.load_model()
+        vocal_model.load_model()
         if not skip_stems:
-            OTHER_MODEL.load_model()
-            DRUMS_MODEL.load_model()
-            BASS_MODEL.load_model()
+            other_model.load_model()
+            drums_model.load_model()
+            bass_model.load_model()
 
     with measure_time("Elapsed time"):
         for path in input_paths:
@@ -171,7 +251,7 @@ def main():
                 output_path = out_dir / output_name
                 save_audio(output_path, mix, sr)
 
-            vocals = VOCAL_MODEL.demix(mix)["vocals"]
+            vocals = vocal_model.demix(mix)["vocals"]
             inst = mix - vocals
 
             save_audio_to_out_dir("vocals", vocals)
@@ -180,16 +260,16 @@ def main():
             if skip_stems:
                 continue
 
-            other = OTHER_MODEL.demix(inst)["other"]
+            other = other_model.demix(inst)["other"]
 
             save_audio_to_out_dir("other", other)
 
             drum_and_bass = inst - other
-            bass = BASS_MODEL.demix(drum_and_bass)["bass"]
+            bass = bass_model.demix(drum_and_bass)["bass"]
 
             save_audio_to_out_dir("bass", bass)
 
-            drums = DRUMS_MODEL.demix(drum_and_bass - bass)["drums"]
+            drums = drums_model.demix(drum_and_bass - bass)["drums"]
             residual = drum_and_bass - bass - drums
 
             save_audio_to_out_dir("drums", drums)
