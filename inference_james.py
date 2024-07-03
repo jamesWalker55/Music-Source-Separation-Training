@@ -185,19 +185,26 @@ def parse_args(config: Config | None = None):
         action="store_true",
         help="skip extracting drums, bass, and other stems",
     )
+    parser.add_argument(
+        "-i",
+        "--no-vocals",
+        action="store_true",
+        help="if the input tracks don't have vocals, use this option to skip vocal extraction",
+    )
     args = parser.parse_args()
 
     input_paths: list[Path] = args.input
     out_dir: Path = args.out_dir
     skip_stems: bool = args.skip_stems
+    no_vocals: bool = args.no_vocals
 
-    return (input_paths, out_dir, skip_stems)
+    return (input_paths, out_dir, skip_stems, no_vocals)
 
 
 def main():
     config = Config.load_config()
 
-    input_paths, out_dir, skip_stems = parse_args(config)
+    input_paths, out_dir, skip_stems, no_vocals = parse_args(config)
 
     print("Total files found: {}".format(len(input_paths)))
 
@@ -229,7 +236,8 @@ def main():
     )
 
     with measure_time("Load models"):
-        vocal_model.load_model()
+        if not no_vocals:
+            vocal_model.load_model()
         if not skip_stems:
             other_model.load_model()
             drums_model.load_model()
@@ -251,10 +259,13 @@ def main():
                 output_path = out_dir / output_name
                 save_audio(output_path, mix, sr)
 
-            vocals = vocal_model.demix(mix)["vocals"]
-            inst = mix - vocals
+            if not no_vocals:
+                vocals = vocal_model.demix(mix)["vocals"]
+                save_audio_to_out_dir("vocals", vocals)
+                inst = mix - vocals
+            else:
+                inst = mix
 
-            save_audio_to_out_dir("vocals", vocals)
             save_audio_to_out_dir("inst", inst)
 
             if skip_stems:
