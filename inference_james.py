@@ -123,14 +123,32 @@ def save_audio(path: str, mix: np.ndarray, sr):
     sf.write(path, mix, sr, subtype=subtype)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input", nargs="+", type=Path, help="input files to process")
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path("D:/Audio Samples/_Acapella/MSST"),
+        help="output directory",
+    )
+    parser.add_argument(
+        "-s",
+        "--skip-stems",
+        action="store_true",
+        help="skip extracting drums, bass, and other stems",
+    )
+    args = parser.parse_args()
+
+    input_paths: list[Path] = args.input
+    out_dir: Path = args.out_dir
+    skip_stems: bool = args.skip_stems
+
+    return (input_paths, out_dir, skip_stems)
+
+
 def main():
-    input_paths = [
-        R"D:\Audio Samples\_Acapella\MSST\「3時12分 _ TAKU INOUE & 星街すいせい」MUSIC VIDEO LYFciXBcXIQ.opus",
-        R"D:\Audio Samples\_Acapella\MSST\【original anime MV】III【hololive⧸宝鐘マリン＆こぼ・かなえる】 lUDPjyfmJrs.opus",
-        R"D:\Audio Samples\_Acapella\MSST\05. インターネットが遅いさん (Super-Slow-Internet-san).mp3",
-        R"D:\Audio Samples\_Acapella\MSST\Anomalie didn't know I copied him F9YelbEAsww.opus",
-        R"D:\Audio Samples\_Acapella\MSST\LiSA 『ハルシネイト』 MUSiC CLiP ABy-evbZtw4.opus",
-    ]
+    input_paths, out_dir, skip_stems = parse_args()
 
     print("Total files found: {}".format(len(input_paths)))
 
@@ -138,14 +156,13 @@ def main():
 
     with measure_time("Load models"):
         VOCAL_MODEL.load_model()
-        OTHER_MODEL.load_model()
-        DRUMS_MODEL.load_model()
-        BASS_MODEL.load_model()
+        if not skip_stems:
+            OTHER_MODEL.load_model()
+            DRUMS_MODEL.load_model()
+            BASS_MODEL.load_model()
 
     with measure_time("Elapsed time"):
         for path in input_paths:
-            path = Path(path)
-
             input_paths.set_postfix({"track": path.name})
 
             try:
@@ -155,36 +172,34 @@ def main():
                 print(f"Error message: {e}")
                 continue
 
+            def save_audio_to_out_dir(name: str, mix: np.ndarray):
+                output_name = f"{path.stem}_{name}.flac"
+                output_path = out_dir / output_name
+                save_audio(output_path, mix, sr)
+
             vocals = VOCAL_MODEL.demix(mix)["vocals"]
-
-            output_path = path.with_stem(path.stem + "_vocals").with_suffix(".flac")
-            save_audio(output_path, vocals, sr)
-
             inst = mix - vocals
+
+            save_audio_to_out_dir("vocals", vocals)
+            save_audio_to_out_dir("inst", inst)
+
+            if skip_stems:
+                continue
+
             other = OTHER_MODEL.demix(inst)["other"]
 
-            output_path = path.with_stem(path.stem + "_other").with_suffix(".flac")
-            save_audio(output_path, other, sr)
+            save_audio_to_out_dir("other", other)
 
             drum_and_bass = inst - other
             bass = BASS_MODEL.demix(drum_and_bass)["bass"]
 
-            output_path = path.with_stem(path.stem + "_drum_and_bass").with_suffix(
-                ".flac"
-            )
-            save_audio(output_path, drum_and_bass, sr)
-
-            output_path = path.with_stem(path.stem + "_bass").with_suffix(".flac")
-            save_audio(output_path, bass, sr)
+            save_audio_to_out_dir("bass", bass)
 
             drums = DRUMS_MODEL.demix(drum_and_bass - bass)["drums"]
             residual = drum_and_bass - bass - drums
 
-            output_path = path.with_stem(path.stem + "_drums").with_suffix(".flac")
-            save_audio(output_path, drums, sr)
-
-            output_path = path.with_stem(path.stem + "_residual").with_suffix(".flac")
-            save_audio(output_path, residual, sr)
+            save_audio_to_out_dir("drums", drums)
+            save_audio_to_out_dir("residual", residual)
 
 
 if __name__ == "__main__":
