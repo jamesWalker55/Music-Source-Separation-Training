@@ -31,6 +31,12 @@ dependencies = [
     "asteroid>=0.5.2",
     "auraloss>=0.4.0",
     "torchseg>=0.0.1a1",
+    "bitsandbytes>=0.44.1",
+    "wandb>=0.18.5",
+    "accelerate>=1.0.1",
+    "prodigyopt>=1.0",
+    "torch-log-wmse>=0.2.9",
+    "wxpython==4.2.2",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
