@@ -191,20 +191,27 @@ def parse_args(config: Config | None = None):
         action="store_true",
         help="if the input tracks don't have vocals, use this option to skip vocal extraction",
     )
+    parser.add_argument(
+        "-w",
+        "--wav",
+        action="store_true",
+        help="save using WAV format instead of FLAC",
+    )
     args = parser.parse_args()
 
     input_paths: list[Path] = args.input
     out_dir: Path = args.out_dir
     skip_stems: bool = args.skip_stems
     no_vocals: bool = args.no_vocals
+    save_wav: bool = args.wav
 
-    return (input_paths, out_dir, skip_stems, no_vocals)
+    return (input_paths, out_dir, skip_stems, no_vocals, save_wav)
 
 
 def main():
     config = Config.load_config()
 
-    input_paths, out_dir, skip_stems, no_vocals = parse_args(config)
+    input_paths, out_dir, skip_stems, no_vocals, save_wav = parse_args(config)
 
     print("Total files found: {}".format(len(input_paths)))
 
@@ -255,7 +262,10 @@ def main():
                 continue
 
             def save_audio_to_out_dir(name: str, mix: np.ndarray):
-                output_name = f"{path.stem}_{name}.flac"
+                if save_wav:
+                    output_name = f"{path.stem}_{name}.wav"
+                else:
+                    output_name = f"{path.stem}_{name}.flac"
                 output_path = out_dir / output_name
                 save_audio(output_path, mix, sr)
 
