@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from string import Template
+from typing import NamedTuple
 
 import librosa
 import numpy as np
@@ -29,29 +30,29 @@ def get_device():
 device = get_device()
 
 
+class ModelConfig(NamedTuple):
+    type: str
+    config: Path
+    checkpoint: Path
+
+    @classmethod
+    def from_ini_section(cls, section: configparser.SectionProxy):
+        return cls(
+            section["type"],
+            Config.resolve_path(section["config"]),
+            Config.resolve_path(section["checkpoint"]),
+        )
+
+
 @dataclass
 class Config:
     out_dir: Path
 
-    vocal_model_type: str
-    vocal_model_config: Path
-    vocal_model_checkpoint: Path
-
-    other_model_type: str
-    other_model_config: Path
-    other_model_checkpoint: Path
-
-    drums_model_type: str
-    drums_model_config: Path
-    drums_model_checkpoint: Path
-
-    bass_model_type: str
-    bass_model_config: Path
-    bass_model_checkpoint: Path
-
-    dereverb_model_type: str
-    dereverb_model_config: Path
-    dereverb_model_checkpoint: Path
+    vocal_model: ModelConfig
+    other_model: ModelConfig
+    drums_model: ModelConfig
+    bass_model: ModelConfig
+    dereverb_model: ModelConfig
 
     @staticmethod
     def config_path():
@@ -91,21 +92,11 @@ class Config:
 
         return cls(
             cls.resolve_path(c["paths"]["out_dir"]),
-            c["vocal_model"]["type"],
-            cls.resolve_path(c["vocal_model"]["config"]),
-            cls.resolve_path(c["vocal_model"]["checkpoint"]),
-            c["other_model"]["type"],
-            cls.resolve_path(c["other_model"]["config"]),
-            cls.resolve_path(c["other_model"]["checkpoint"]),
-            c["drums_model"]["type"],
-            cls.resolve_path(c["drums_model"]["config"]),
-            cls.resolve_path(c["drums_model"]["checkpoint"]),
-            c["bass_model"]["type"],
-            cls.resolve_path(c["bass_model"]["config"]),
-            cls.resolve_path(c["bass_model"]["checkpoint"]),
-            c["dereverb_model"]["type"],
-            cls.resolve_path(c["dereverb_model"]["config"]),
-            cls.resolve_path(c["dereverb_model"]["checkpoint"]),
+            ModelConfig.from_ini_section(c["vocal_model"]),
+            ModelConfig.from_ini_section(c["other_model"]),
+            ModelConfig.from_ini_section(c["drums_model"]),
+            ModelConfig.from_ini_section(c["bass_model"]),
+            ModelConfig.from_ini_section(c["dereverb_model"]),
         )
 
 
@@ -119,10 +110,15 @@ class Model:
     # model: ???
     # config: ???
 
+    @classmethod
+    def from_config(cls, x: ModelConfig):
+        return cls(x.type, str(x.config), str(x.checkpoint))
+
     def _load_model(self):
         print(f"Loading {self.type} model: {self.checkpoint_path}")
         with measure_time("Loaded in"):
             model, config = get_model_from_config(self.type, self.config_path)
+            assert model
 
             state_dict = torch.load(self.checkpoint_path)
             if self.type == "htdemucs":
@@ -144,7 +140,7 @@ class Model:
     def demix(self, mix: np.ndarray) -> dict[str, np.ndarray]:
         self.load_model_if_not_loaded()
 
-        mix = torch.tensor(mix.T, dtype=torch.float32)
+        mix = torch.tensor(mix.T, dtype=torch.float32)  # type: ignore
         if self.type == "htdemucs":
             res = demix_track_demucs(self.config, self.model, mix, device)
         else:
@@ -166,7 +162,7 @@ def measure_time(text: str):
         print(f"{text}: {elapsed_time:.2f} sec")
 
 
-def load_audio(path: str):
+def load_audio(path: str | Path):
     # mix, sr = sf.read(path)
     mix, sr = librosa.load(path, sr=44100, mono=False)
     mix = mix.T
@@ -178,13 +174,13 @@ def load_audio(path: str):
     return mix, sr
 
 
-def save_audio(path: str, mix: np.ndarray, sr):
+def save_audio(path: str | Path, mix: np.ndarray, sr):
     path = str(path)
     subtype = "FLOAT" if path.lower().endswith("wav") else None
     sf.write(path, mix, sr, subtype=subtype)
 
 
-def parse_args(config: Config | None = None):
+def parse_args(config: Config):
     parser = argparse.ArgumentParser()
     parser.add_argument("input", nargs="+", type=Path, help="input files to process")
     parser.add_argument(
@@ -239,35 +235,15 @@ def main():
     input_paths = tqdm(input_paths)
 
     # Vocal model: BS Roformer (viperx edition)
-    vocal_model = Model(
-        config.vocal_model_type,
-        config.vocal_model_config,
-        config.vocal_model_checkpoint,
-    )
+    vocal_model = Model.from_config(config.vocal_model)
     # Single stem model: BS Roformer (viperx edition)
-    other_model = Model(
-        config.other_model_type,
-        config.other_model_config,
-        config.other_model_checkpoint,
-    )
+    other_model = Model.from_config(config.other_model)
     # Single stem model: HTDemucs4 FT Drums
-    drums_model = Model(
-        config.drums_model_type,
-        config.drums_model_config,
-        config.drums_model_checkpoint,
-    )
+    drums_model = Model.from_config(config.drums_model)
     # Single stem model: HTDemucs4 FT Bass
-    bass_model = Model(
-        config.bass_model_type,
-        config.bass_model_config,
-        config.bass_model_checkpoint,
-    )
+    bass_model = Model.from_config(config.bass_model)
     # Single stem model: HTDemucs4 FT Bass
-    dereverb_model = Model(
-        config.dereverb_model_type,
-        config.dereverb_model_config,
-        config.dereverb_model_checkpoint,
-    )
+    dereverb_model = Model.from_config(config.dereverb_model)
 
     with measure_time("Elapsed time"):
         for path in input_paths:
