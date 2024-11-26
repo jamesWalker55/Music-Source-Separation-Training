@@ -49,6 +49,10 @@ class Config:
     bass_model_config: Path
     bass_model_checkpoint: Path
 
+    dereverb_model_type: str
+    dereverb_model_config: Path
+    dereverb_model_checkpoint: Path
+
     @staticmethod
     def config_path():
         import platformdirs
@@ -99,6 +103,9 @@ class Config:
             c["bass_model"]["type"],
             cls.resolve_path(c["bass_model"]["config"]),
             cls.resolve_path(c["bass_model"]["checkpoint"]),
+            c["dereverb_model"]["type"],
+            cls.resolve_path(c["dereverb_model"]["config"]),
+            cls.resolve_path(c["dereverb_model"]["checkpoint"]),
         )
 
 
@@ -180,6 +187,12 @@ def parse_args(config: Config | None = None):
         help="output directory",
     )
     parser.add_argument(
+        "-r",
+        "--dereverb",
+        action="store_true",
+        help="only remove reverb",
+    )
+    parser.add_argument(
         "-s",
         "--skip-stems",
         action="store_true",
@@ -204,14 +217,15 @@ def parse_args(config: Config | None = None):
     skip_stems: bool = args.skip_stems
     no_vocals: bool = args.no_vocals
     save_wav: bool = args.wav
+    dereverb: bool = args.dereverb
 
-    return (input_paths, out_dir, skip_stems, no_vocals, save_wav)
+    return (input_paths, out_dir, skip_stems, no_vocals, save_wav, dereverb)
 
 
 def main():
     config = Config.load_config()
 
-    input_paths, out_dir, skip_stems, no_vocals, save_wav = parse_args(config)
+    input_paths, out_dir, skip_stems, no_vocals, save_wav, dereverb = parse_args(config)
 
     print("Total files found: {}".format(len(input_paths)))
 
@@ -241,14 +255,23 @@ def main():
         config.bass_model_config,
         config.bass_model_checkpoint,
     )
+    # Single stem model: HTDemucs4 FT Bass
+    dereverb_model = Model(
+        config.dereverb_model_type,
+        config.dereverb_model_config,
+        config.dereverb_model_checkpoint,
+    )
 
     with measure_time("Load models"):
-        if not no_vocals:
-            vocal_model.load_model()
-        if not skip_stems:
-            other_model.load_model()
-            drums_model.load_model()
-            bass_model.load_model()
+        if dereverb:
+            dereverb_model.load_model()
+        else:
+            if not no_vocals:
+                vocal_model.load_model()
+            if not skip_stems:
+                other_model.load_model()
+                drums_model.load_model()
+                bass_model.load_model()
 
     with measure_time("Elapsed time"):
         for path in input_paths:
@@ -269,31 +292,36 @@ def main():
                 output_path = out_dir / output_name
                 save_audio(output_path, mix, sr)
 
-            if not no_vocals:
-                vocals = vocal_model.demix(mix)["vocals"]
-                save_audio_to_out_dir("vocals", vocals)
-                inst = mix - vocals
-                save_audio_to_out_dir("inst", inst)
+            if dereverb:
+                noreverb = dereverb_model.demix(mix)["noreverb"]
+                save_audio_to_out_dir("noreverb", noreverb)
+                save_audio_to_out_dir("reverb", mix - noreverb)
             else:
-                inst = mix
+                if not no_vocals:
+                    vocals = vocal_model.demix(mix)["vocals"]
+                    save_audio_to_out_dir("vocals", vocals)
+                    inst = mix - vocals
+                    save_audio_to_out_dir("inst", inst)
+                else:
+                    inst = mix
 
-            if skip_stems:
-                continue
+                if skip_stems:
+                    continue
 
-            other = other_model.demix(inst)["other"]
+                other = other_model.demix(inst)["other"]
 
-            save_audio_to_out_dir("other", other)
+                save_audio_to_out_dir("other", other)
 
-            drum_and_bass = inst - other
-            bass = bass_model.demix(drum_and_bass)["bass"]
+                drum_and_bass = inst - other
+                bass = bass_model.demix(drum_and_bass)["bass"]
 
-            save_audio_to_out_dir("bass", bass)
+                save_audio_to_out_dir("bass", bass)
 
-            drums = drums_model.demix(drum_and_bass - bass)["drums"]
-            residual = drum_and_bass - bass - drums
+                drums = drums_model.demix(drum_and_bass - bass)["drums"]
+                residual = drum_and_bass - bass - drums
 
-            save_audio_to_out_dir("drums", drums)
-            save_audio_to_out_dir("residual", residual)
+                save_audio_to_out_dir("drums", drums)
+                save_audio_to_out_dir("residual", residual)
 
 
 if __name__ == "__main__":
