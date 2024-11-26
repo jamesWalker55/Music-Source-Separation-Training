@@ -216,7 +216,6 @@ def save_audio(path: str | Path, mix: np.ndarray, sr):
 def parse_args(config: Config):
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("input", nargs="+", type=Path, help="input files to process")
     parser.add_argument(
         "--out-dir",
         type=Path,
@@ -230,10 +229,11 @@ def parse_args(config: Config):
         help="save using WAV format instead of FLAC",
     )
 
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(required=True)
 
     sp = subparsers.add_parser("demix", help="classic 4-stem demixing mode")
     sp.set_defaults(key="demix")
+    sp.add_argument("input", nargs="+", type=Path, help="input files to process")
     sp.add_argument(
         "-s",
         "--skip-stems",
@@ -250,6 +250,7 @@ def parse_args(config: Config):
     for key in config.extra_models.keys():
         sp = subparsers.add_parser(key)
         sp.set_defaults(key=key)
+        sp.add_argument("input", nargs="+", type=Path, help="input files to process")
 
     args = parser.parse_args()
 
