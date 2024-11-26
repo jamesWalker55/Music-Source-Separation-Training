@@ -50,9 +50,15 @@ class ModelOutputConfig(NamedTuple):
     output_name: str
 
     @classmethod
-    def from_dict(cls, x: dict[str, str]):
+    def from_dict(cls, x: dict):
+        inst = x["instrument"]
+        assert (
+            isinstance(inst, str) or inst is False
+        ), "instrument can only be either string or false"
+        name = x["output_name"]
+        assert isinstance(name, str), "output name must be string"
         return cls(
-            x["instrument"],
+            inst if inst is not False else None,
             x["output_name"],
         )
 
