@@ -32,3 +32,10 @@ key = 'dereverb'
 type = 'mel_band_roformer'
 config = '$msst/results/dereverb_mel_band_roformer_anvuew.yaml'
 checkpoint = '$msst/results/dereverb_mel_band_roformer_anvuew_sdr_19.1729.ckpt'
+[[extra_models.outputs]]
+instrument = 'noreverb'
+output_name = 'noreverb'
+[[extra_models.outputs]]
+instrument = false # for residual output
+output_name = 'reverb'
+

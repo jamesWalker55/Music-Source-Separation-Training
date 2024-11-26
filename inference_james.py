@@ -45,6 +45,18 @@ class ModelConfig(NamedTuple):
         )
 
 
+class ModelOutputConfig(NamedTuple):
+    instrument: str | None
+    output_name: str
+
+    @classmethod
+    def from_dict(cls, x: dict[str, str]):
+        return cls(
+            x["instrument"],
+            x["output_name"],
+        )
+
+
 @dataclass
 class Config:
     out_dir: Path
@@ -53,7 +65,7 @@ class Config:
     other_model: ModelConfig
     drums_model: ModelConfig
     bass_model: ModelConfig
-    extra_models: dict[str, ModelConfig]
+    extra_models: dict[str, tuple[ModelConfig, list[ModelOutputConfig]]]
 
     @staticmethod
     def config_path():
@@ -90,7 +102,7 @@ class Config:
         with open(config_path, "rb") as f:
             c = tomllib.load(f)
 
-        extra_models_dict: dict[str, ModelConfig] = {}
+        extra_models_dict: dict[str, tuple[ModelConfig, list[ModelOutputConfig]]] = {}
         assert isinstance(
             c["extra_models"], list
         ), "extra_models should be a list of model configs"
@@ -100,7 +112,16 @@ class Config:
             assert key not in extra_models_dict, f"duplicate extra model key: {key!r}"
             assert key != "demix", "cannot name model as 'demix' as it is reserved"
             model_config = ModelConfig.from_dict(x)
-            extra_models_dict[key] = model_config
+            output_configs = [ModelOutputConfig.from_dict(y) for y in x["outputs"]]
+            if len(output_configs) == 0:
+                raise Exception(f"Model config has no outputs: {key!r}")
+            if len(set(_.output_name for _ in output_configs)) != len(output_configs):
+                raise Exception(f"Model config has duplicate output names: {key!r}")
+            if len(set(_.instrument for _ in output_configs)) != len(output_configs):
+                raise Exception(
+                    f"Model config has duplicate output instruments: {key!r}"
+                )
+            extra_models_dict[key] = (model_config, output_configs)
 
         return cls(
             cls.resolve_path(c["paths"]["out_dir"]),
@@ -194,6 +215,7 @@ def save_audio(path: str | Path, mix: np.ndarray, sr):
 
 def parse_args(config: Config):
     parser = argparse.ArgumentParser()
+
     parser.add_argument("input", nargs="+", type=Path, help="input files to process")
     parser.add_argument(
         "--out-dir",
@@ -202,85 +224,97 @@ def parse_args(config: Config):
         help="output directory",
     )
     parser.add_argument(
-        "-r",
-        "--dereverb",
-        action="store_true",
-        help="only remove reverb",
-    )
-    parser.add_argument(
-        "-s",
-        "--skip-stems",
-        action="store_true",
-        help="skip extracting drums, bass, and other stems",
-    )
-    parser.add_argument(
-        "-i",
-        "--no-vocals",
-        action="store_true",
-        help="if the input tracks don't have vocals, use this option to skip vocal extraction",
-    )
-    parser.add_argument(
         "-w",
         "--wav",
         action="store_true",
         help="save using WAV format instead of FLAC",
     )
+
+    subparsers = parser.add_subparsers()
+
+    sp = subparsers.add_parser("demix", help="classic 4-stem demixing mode")
+    sp.set_defaults(key="demix")
+    sp.add_argument(
+        "-s",
+        "--skip-stems",
+        action="store_true",
+        help="skip extracting drums, bass, and other stems",
+    )
+    sp.add_argument(
+        "-i",
+        "--no-vocals",
+        action="store_true",
+        help="if the input tracks don't have vocals, use this option to skip vocal extraction",
+    )
+
+    for key in config.extra_models.keys():
+        sp = subparsers.add_parser(key)
+        sp.set_defaults(key=key)
+
     args = parser.parse_args()
 
     input_paths: list[Path] = args.input
     out_dir: Path = args.out_dir
-    skip_stems: bool = args.skip_stems
-    no_vocals: bool = args.no_vocals
     save_wav: bool = args.wav
-    dereverb: bool = args.dereverb
+    model_key: str = args.key
+    if model_key == "demix":
+        skip_stems: bool = args.skip_stems
+        no_vocals: bool = args.no_vocals
+    else:
+        skip_stems: bool = False
+        no_vocals: bool = False
 
-    return (input_paths, out_dir, skip_stems, no_vocals, save_wav, dereverb)
+    return (input_paths, out_dir, save_wav, model_key, skip_stems, no_vocals)
 
 
 def main():
     config = Config.load_config()
 
-    input_paths, out_dir, skip_stems, no_vocals, save_wav, dereverb = parse_args(config)
+    input_paths, out_dir, save_wav, model_key, skip_stems, no_vocals = parse_args(
+        config
+    )
+
+    def save_audio_to_out_dir(name: str, mix: np.ndarray):
+        if save_wav:
+            output_name = f"{path.stem}_{name}.wav"
+        else:
+            output_name = f"{path.stem}_{name}.flac"
+        output_path = out_dir / output_name
+        save_audio(output_path, mix, sr)
 
     print("Total files found: {}".format(len(input_paths)))
 
     input_paths = tqdm(input_paths)
 
-    # Vocal model: BS Roformer (viperx edition)
-    vocal_model = Model.from_config(config.vocal_model)
-    # Single stem model: BS Roformer (viperx edition)
-    other_model = Model.from_config(config.other_model)
-    # Single stem model: HTDemucs4 FT Drums
-    drums_model = Model.from_config(config.drums_model)
-    # Single stem model: HTDemucs4 FT Bass
-    bass_model = Model.from_config(config.bass_model)
-    # Single stem model: HTDemucs4 FT Bass
-    dereverb_model = Model.from_config(config.extra_models["dereverb"])
+    if model_key == "demix":
+        # Vocal model: BS Roformer (viperx edition)
+        vocal_model = Model.from_config(config.vocal_model)
+        # Single stem model: BS Roformer (viperx edition)
+        other_model = Model.from_config(config.other_model)
+        # Single stem model: HTDemucs4 FT Drums
+        drums_model = Model.from_config(config.drums_model)
+        # Single stem model: HTDemucs4 FT Bass
+        bass_model = Model.from_config(config.bass_model)
 
-    with measure_time("Elapsed time"):
-        for path in input_paths:
-            input_paths.set_postfix({"track": path.name})
+        with measure_time("Load models"):
+            if not no_vocals:
+                vocal_model.load_model_if_not_loaded()
+            if not skip_stems:
+                other_model.load_model_if_not_loaded()
+                drums_model.load_model_if_not_loaded()
+                bass_model.load_model_if_not_loaded()
 
-            try:
-                mix, sr = load_audio(path)
-            except Exception as e:
-                print(f"Can't read track: {path}")
-                print(f"Error message: {e}")
-                continue
+        with measure_time("Elapsed time"):
+            for path in input_paths:
+                input_paths.set_postfix({"track": path.name})
 
-            def save_audio_to_out_dir(name: str, mix: np.ndarray):
-                if save_wav:
-                    output_name = f"{path.stem}_{name}.wav"
-                else:
-                    output_name = f"{path.stem}_{name}.flac"
-                output_path = out_dir / output_name
-                save_audio(output_path, mix, sr)
+                try:
+                    mix, sr = load_audio(path)
+                except Exception as e:
+                    print(f"Can't read track: {path}")
+                    print(f"Error message: {e}")
+                    continue
 
-            if dereverb:
-                noreverb = dereverb_model.demix(mix)["noreverb"]
-                save_audio_to_out_dir("noreverb", noreverb)
-                save_audio_to_out_dir("reverb", mix - noreverb)
-            else:
                 if not no_vocals:
                     vocals = vocal_model.demix(mix)["vocals"]
                     save_audio_to_out_dir("vocals", vocals)
@@ -306,6 +340,58 @@ def main():
 
                 save_audio_to_out_dir("drums", drums)
                 save_audio_to_out_dir("residual", residual)
+    else:
+        model_config, model_outputs = config.extra_models[model_key]
+        model = Model.from_config(model_config)
+        model.load_model_if_not_loaded()
+
+        with measure_time("Elapsed time"):
+            for path in input_paths:
+                input_paths.set_postfix({"track": path.name})
+
+                try:
+                    mix, sr = load_audio(path)
+                except Exception as e:
+                    print(f"Can't read track: {path}")
+                    print(f"Error message: {e}")
+                    continue
+
+                demixed = model.demix(mix)
+                residual_output = None
+
+                for output in model_outputs:
+                    if output.instrument is None:
+                        residual_output = output
+                        continue
+
+                    if output.instrument not in demixed:
+                        raise Exception(
+                            f"Model config instrument {output.instrument!r} does not exist in demixed result (choose from {sorted(demixed.keys())})"
+                        )
+
+                    save_audio_to_out_dir(
+                        output.output_name,
+                        demixed[output.instrument],
+                    )
+
+                if residual_output is not None:
+                    # calculate residual output
+                    residual = mix
+                    for output in model_outputs:
+                        if output.instrument is None:
+                            continue
+
+                        if output.instrument not in demixed:
+                            raise Exception(
+                                f"Model config instrument {output.instrument!r} does not exist in demixed result (choose from {sorted(demixed.keys())})"
+                            )
+
+                        residual = residual - demixed[output.instrument]
+
+                    save_audio_to_out_dir(
+                        residual_output.output_name,
+                        residual,
+                    )
 
 
 if __name__ == "__main__":
