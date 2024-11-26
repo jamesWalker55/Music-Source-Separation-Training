@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from string import Template
+import tomllib
 from typing import NamedTuple
 
 import librosa
@@ -36,11 +37,11 @@ class ModelConfig(NamedTuple):
     checkpoint: Path
 
     @classmethod
-    def from_ini_section(cls, section: configparser.SectionProxy):
+    def from_dict(cls, x: dict[str, str]):
         return cls(
-            section["type"],
-            Config.resolve_path(section["config"]),
-            Config.resolve_path(section["checkpoint"]),
+            x["type"],
+            Config.resolve_path(x["config"]),
+            Config.resolve_path(x["checkpoint"]),
         )
 
 
@@ -52,7 +53,7 @@ class Config:
     other_model: ModelConfig
     drums_model: ModelConfig
     bass_model: ModelConfig
-    dereverb_model: ModelConfig
+    extra_models: dict[str, ModelConfig]
 
     @staticmethod
     def config_path():
@@ -65,11 +66,11 @@ class Config:
             ensure_exists=True,
         )
 
-        return Path(data_dir) / "config.ini"
+        return Path(data_dir) / "config.toml"
 
     @staticmethod
     def default_config_path():
-        path = BASE_DIR / "config.default.ini"
+        path = BASE_DIR / "config.default.toml"
         assert path.exists()
         return path
 
@@ -86,17 +87,28 @@ class Config:
             shutil.copyfile(default_config_path, config_path)
 
         print(f"Reading config from: {config_path}")
-        c = configparser.ConfigParser()
-        c.read(default_config_path)
-        c.read(config_path)
+        with open(config_path, "rb") as f:
+            c = tomllib.load(f)
+
+        extra_models_dict: dict[str, ModelConfig] = {}
+        assert isinstance(
+            c["extra_models"], list
+        ), "extra_models should be a list of model configs"
+        for x in c["extra_models"]:
+            key = x["key"]
+            assert isinstance(key, str), "model key must be a string"
+            assert key not in extra_models_dict, f"duplicate extra model key: {key!r}"
+            assert key != "demix", "cannot name model as 'demix' as it is reserved"
+            model_config = ModelConfig.from_dict(x)
+            extra_models_dict[key] = model_config
 
         return cls(
             cls.resolve_path(c["paths"]["out_dir"]),
-            ModelConfig.from_ini_section(c["vocal_model"]),
-            ModelConfig.from_ini_section(c["other_model"]),
-            ModelConfig.from_ini_section(c["drums_model"]),
-            ModelConfig.from_ini_section(c["bass_model"]),
-            ModelConfig.from_ini_section(c["dereverb_model"]),
+            ModelConfig.from_dict(c["vocal_model"]),
+            ModelConfig.from_dict(c["other_model"]),
+            ModelConfig.from_dict(c["drums_model"]),
+            ModelConfig.from_dict(c["bass_model"]),
+            extra_models_dict,
         )
 
 
@@ -243,7 +255,7 @@ def main():
     # Single stem model: HTDemucs4 FT Bass
     bass_model = Model.from_config(config.bass_model)
     # Single stem model: HTDemucs4 FT Bass
-    dereverb_model = Model.from_config(config.dereverb_model)
+    dereverb_model = Model.from_config(config.extra_models["dereverb"])
 
     with measure_time("Elapsed time"):
         for path in input_paths:
