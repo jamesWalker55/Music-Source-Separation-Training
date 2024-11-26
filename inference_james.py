@@ -119,24 +119,31 @@ class Model:
     # model: ???
     # config: ???
 
-    def load_model(self):
+    def _load_model(self):
         print(f"Loading {self.type} model: {self.checkpoint_path}")
-        model, config = get_model_from_config(self.type, self.config_path)
+        with measure_time("Loaded in"):
+            model, config = get_model_from_config(self.type, self.config_path)
 
-        state_dict = torch.load(self.checkpoint_path)
-        if self.type == "htdemucs":
-            # Fix for htdemucs pround etrained models
-            if "state" in state_dict:
-                state_dict = state_dict["state"]
-        model.load_state_dict(state_dict)
+            state_dict = torch.load(self.checkpoint_path)
+            if self.type == "htdemucs":
+                # Fix for htdemucs pround etrained models
+                if "state" in state_dict:
+                    state_dict = state_dict["state"]
+            model.load_state_dict(state_dict)
 
-        model = model.to(device)
-        model.eval()
+            model = model.to(device)
+            model.eval()
 
-        self.model = model
-        self.config = config
+            self.model = model
+            self.config = config
+
+    def load_model_if_not_loaded(self):
+        if not hasattr(self, "model"):
+            self._load_model()
 
     def demix(self, mix: np.ndarray) -> dict[str, np.ndarray]:
+        self.load_model_if_not_loaded()
+
         mix = torch.tensor(mix.T, dtype=torch.float32)
         if self.type == "htdemucs":
             res = demix_track_demucs(self.config, self.model, mix, device)
@@ -261,17 +268,6 @@ def main():
         config.dereverb_model_config,
         config.dereverb_model_checkpoint,
     )
-
-    with measure_time("Load models"):
-        if dereverb:
-            dereverb_model.load_model()
-        else:
-            if not no_vocals:
-                vocal_model.load_model()
-            if not skip_stems:
-                other_model.load_model()
-                drums_model.load_model()
-                bass_model.load_model()
 
     with measure_time("Elapsed time"):
         for path in input_paths:
